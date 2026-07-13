@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>TEF Reading — CE mock exams (FR / EN)</title>
+<meta name="robots" content="noindex, nofollow">
+<meta name="googlebot" content="noindex, nofollow">
+<script>/* apply saved theme before paint */
+  (function(){var t=localStorage.getItem('theme'); if(t) document.documentElement.setAttribute('data-theme', t);})();
+</script>
+<link rel="stylesheet" href="style.css?v=1">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1f232a">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="CE reading">
+</head>
+<body>
+<div id="app">
+  <aside id="sidebar">
+    <div class="side-head">
+      <div class="side-top">
+        <h1>Reading</h1>
+        <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
+      </div>
+      <input id="search" type="search" placeholder="Search exams, passages…" autocomplete="off">
+      <div id="count" class="count"></div>
+    </div>
+    <nav id="list"></nav>
+  </aside>
+  <main id="reader">
+    <div id="empty" class="empty">Select an exam on the left. Each is a full TEF Compréhension écrite mock — read each document, then answer.</div>
+    <article id="entry" hidden>
+      <div class="entry-head">
+        <button id="back" class="back-btn" type="button">‹ Exams</button>
+        <div class="entry-titlebar">
+          <h2 id="entry-title"></h2>
+          <button id="drill-toggle" class="drill-toggle" type="button" title="Hide the translation, answer & explanation; answer from the French, then reveal">🎯 Drill</button>
+        </div>
+        <div id="entry-meta" class="entry-meta"></div>
+        <div id="entry-note" class="entry-note"></div>
+        <div id="hl-bar" class="hl-bar">
+          <span id="hl-count" class="hl-count">No highlights yet</span>
+          <span class="hl-spacer"></span>
+          <button id="hl-csv" class="hl-btn" title="Export highlighted words/phrases as CSV (study list)" disabled>⤓ CSV</button>
+          <button id="hl-txt" class="hl-btn" title="Export as text" disabled>⤓ TXT</button>
+          <button id="hl-backup" class="hl-btn" title="Download a lossless backup of ALL highlights (JSON)" disabled>⤓ Backup</button>
+          <button id="hl-restore" class="hl-btn" title="Restore highlights from a backup (.json) or CSV export">⤒ Restore</button>
+          <input id="hl-file" type="file" accept=".json,.csv,application/json,text/csv" hidden>
+          <button id="hl-clear" class="hl-btn" title="Remove all highlights" disabled>Clear</button>
+        </div>
+      </div>
+      <div class="seg-head"><div>Français <span class="hl-hint">· tap a word to highlight · tap again to remove · drag to select a phrase</span></div><div>English</div></div>
+      <div id="segs"></div>
+      <div id="questions"></div>
+    </article>
+  </main>
+</div>
+<script src="data.js?v=1"></script>
+<script src="app.js?v=1"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () {
+      navigator.serviceWorker.register('sw.js').catch(function () {});
+    });
+  }
+</script>
+</body>
+</html>
