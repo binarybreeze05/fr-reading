@@ -190,7 +190,11 @@ ul.opts li.correct .fr::after{content:" ✓";color:var(--correct-fg)}
 /* hide content while drilling, until answered/revealed */
 body.drill .seg-head{display:none}
 body.drill .passage:not(.revealed) .drill-bar{display:flex}
-body.drill .passage:not(.revealed) .seg{display:none}
+/* reading drill: keep the French document visible (you must read it to answer) but
+   hide its English translation — same treatment the question stem & options get.
+   The explanation's own .seg rows stay hidden via .explain below. */
+body.drill .passage:not(.revealed) .seg{grid-template-columns:1fr}
+body.drill .passage:not(.revealed) .seg .seg-en{display:none}
 body.drill .passage:not(.revealed) .pass-snip{display:none}
 body.drill .passage:not(.revealed) .explain{display:none}
 body.drill .qcard:not(.answered) .q-instr,
