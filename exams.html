@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>TEF Reading — 2026 · ranked (FR / EN)</title>
+<title>TEF Reading — CE mock exams (FR / EN)</title>
 <meta name="robots" content="noindex, nofollow">
 <meta name="googlebot" content="noindex, nofollow">
 <script>/* apply saved theme before paint */
@@ -27,20 +27,20 @@
         <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">☾</button>
       </div>
       <div class="modenav">
-        <a class="modetab active" href="index.html">📖 2026 · ranked</a>
-        <a class="modetab" href="exams.html">💿 CE mock exams</a>
+        <a class="modetab" href="index.html">📖 2026 · ranked</a>
+        <a class="modetab active" href="exams.html">💿 CE mock exams</a>
       </div>
-      <input id="search" type="search" placeholder="Search passages, questions…" autocomplete="off">
+      <input id="search" type="search" placeholder="Search exams, passages…" autocomplete="off">
       <div id="filters" class="filters"></div>
       <div id="count" class="count"></div>
     </div>
     <nav id="list"></nav>
   </aside>
   <main id="reader">
-    <div id="empty" class="empty">Select a passage on the left. The 2026 course is ordered easiest → hardest (CEFR) — read each document, then answer.</div>
+    <div id="empty" class="empty">Select an exam on the left. Each is a full TEF Compréhension écrite mock — read each document, then answer.</div>
     <article id="entry" hidden>
       <div class="entry-head">
-        <button id="back" class="back-btn" type="button">‹ Passages</button>
+        <button id="back" class="back-btn" type="button">‹ Exams</button>
         <div class="entry-titlebar">
           <h2 id="entry-title"></h2>
           <button id="drill-toggle" class="drill-toggle" type="button" title="Hide the translation, answer & explanation; answer from the French, then reveal">🎯 Drill</button>
@@ -64,7 +64,7 @@
     </article>
   </main>
 </div>
-<script>window.MODE = 'ranked';</script>
+<script>window.MODE = 'exams';</script>
 <script src="data.js?v=2"></script>
 <script src="dupes.js?v=2"></script>
 <script src="app.js?v=2"></script>

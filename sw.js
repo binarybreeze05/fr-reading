@@ -1,7 +1,8 @@
 // Minimal service worker: installable PWA + offline app-shell.
 // Network-first for shell/data (stays fresh), cache fallback (offline). Reading has no audio.
-const CACHE = 'tef-reading-v1';
-const SHELL = ['./', './index.html', './style.css?v=1', './app.js?v=1', './data.js?v=1',
+const CACHE = 'tef-reading-v2';
+const SHELL = ['./', './index.html', './exams.html', './style.css?v=2', './app.js?v=2',
+               './data.js?v=2', './dupes.js?v=2',
                './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', e => {

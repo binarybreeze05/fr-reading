@@ -212,3 +212,6 @@ body.drill .qcard.answered ul.opts li.chosen{outline:2px solid var(--accent);out
 body.drill .qcard.answered ul.opts li.wrong{background:var(--wrong-bg);border-color:var(--wrong-bd)}
 body.drill .qcard.answered ul.opts li.wrong .fr{color:var(--wrong-fg)}
 body.drill .qcard.answered ul.opts li.wrong .fr::after{content:" ✗";color:var(--wrong-fg)}
+/* deep-link flash: briefly highlight a passage opened via a #go= cross-link */
+.passage.flash{animation:flashbg 1.6s ease-out}
+@keyframes flashbg{0%{background:var(--seghover)}100%{background:transparent}}

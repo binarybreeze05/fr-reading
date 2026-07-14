@@ -1,13 +1,23 @@
 (function () {
-  /* TEF Reading (CE) — bilingual reader. Forked from the tef-listening renderer:
-     audio, continuous-play, mediaSession, the ranked page and the "also in 2026"
-     dupe badges are all removed (reading has no audio and no 2026 course). The
-     word-highlight subsystem is carried over verbatim; only the per-slot keys change
-     (passage 't', stem 's', option 'o', explanation 'x'). */
-  var DATA = (window.PASSAGES || []).slice();
+  /* TEF Reading (CE) — bilingual reader, two modes over one data.js:
+       ranked (index.html, window.MODE='ranked') = the 2026 course (course 'ce2'),
+         per-passage, ordered easiest→hardest by CEFR/difficulty, with CEFR filter chips;
+       exams  (exams.html, window.MODE='exams')  = the 19 CE mock exams (course 'ce1'),
+         grouped by exam in test order.
+     Overlap badges cross-link the two: DUPES (ce1 qref→2026) shows "↻ also in 2026" on the
+     exams view; DUPES2026 (ce2 qref→mock) shows "↻ also in a mock exam" on the ranked view.
+     No audio. Word-highlight + drill subsystems carried over; slots: passage 't', stem 's',
+     option 'o', explanation 'x'. */
+  var ALL = (window.PASSAGES || []).slice();
+  var MODE = (window.MODE === 'exams') ? 'exams' : 'ranked';
+  var COURSE = (MODE === 'exams') ? 'ce1' : 'ce2';
+  var DATA = ALL.filter(function (p) { return (p.course || 'ce1') === COURSE; });
+  var DUPES = window.DUPES || {};          // ce1 qref -> { sim, to:{exam,rank,id,qref} }
+  var DUPES2026 = window.DUPES2026 || {};  // ce2 qref -> { sim, to:{exam,rank,id,qref} }
 
   var listEl = document.getElementById('list');
   var searchEl = document.getElementById('search');
+  var filtersEl = document.getElementById('filters');
   var countEl = document.getElementById('count');
   var emptyEl = document.getElementById('empty');
   var entryEl = document.getElementById('entry');
@@ -16,7 +26,10 @@
   var reader = document.getElementById('reader');
   var themeBtn = document.getElementById('theme-toggle');
 
-  var curExam = null;   // active exam slug
+  var BANDS = ['A1', 'A2', 'B1', 'B2', 'C1', 'C2'];
+  var activeBand = localStorage.getItem('band-reading') || 'all';
+  var curId = null;     // ranked: active passage id
+  var curExam = null;   // exams: active exam slug
 
   /* ---- theme ---- */
   var root = document.documentElement;
@@ -32,20 +45,20 @@
 
   /* ---- drill mode (hide passage/translations/answer/explanation; reveal after answering) ---- */
   var drillBtn = document.getElementById('drill-toggle');
-  var DRILL = localStorage.getItem('drill-reading') === '1';
+  var DRILL = localStorage.getItem('drill-reading-' + MODE) === '1';
   function paintDrill() {
     document.body.classList.toggle('drill', DRILL);
     if (drillBtn) { drillBtn.classList.toggle('on', DRILL); drillBtn.textContent = DRILL ? '🎯 Drill: ON' : '🎯 Drill'; }
   }
   if (drillBtn) drillBtn.addEventListener('click', function () {
-    DRILL = !DRILL; localStorage.setItem('drill-reading', DRILL ? '1' : '0'); paintDrill(); rerenderReader(); renderList();
+    DRILL = !DRILL; localStorage.setItem('drill-reading-' + MODE, DRILL ? '1' : '0'); paintDrill(); rerenderReader(); renderList();
   });
   paintDrill();
 
   document.getElementById('back').addEventListener('click', function () { document.body.classList.remove('detail'); });
   function isMobile() { return window.matchMedia('(max-width:680px)').matches; }
 
-  function byId(id) { for (var i = 0; i < DATA.length; i++) if (DATA[i].id === id) return DATA[i]; return null; }
+  function byId(id) { for (var i = 0; i < ALL.length; i++) if (ALL[i].id === id) return ALL[i]; return null; }
   function snippet(p, n) {
     var s = (p.passage[0] && p.passage[0].fr) || (p.questions[0] && p.questions[0].stem.fr) || '(no text)';
     n = n || 90; return s.length > n ? s.slice(0, n - 1) + '…' : s;
@@ -53,11 +66,11 @@
   function qnums(p) { return p.questions.map(function (q) { return q.qref.split('#')[1]; }); }
   function qmin(p) { return Math.min.apply(null, qnums(p).map(Number)); }
   function examNum(slug) { var m = slug.replace('ce-mock-exam-', '').match(/(\d+)/); return m ? +m[1] : 0; }
-  function examLabel(slug) { return slug.replace('ce-mock-exam-', 'CE mock exam '); }
+  function examLabel(slug) { return slug.replace('ce-mock-exam-', 'CE mock exam ').replace('tef-reading-practice-2026', 'TEF Reading 2026'); }
 
-  /* ---- exams grouping ---- */
+  /* ---- exams grouping (exams mode only) ---- */
   var EXAMS = [];
-  (function () {
+  if (MODE === 'exams') {
     var byExam = {};
     DATA.forEach(function (p) { (byExam[p.exam] = byExam[p.exam] || []).push(p); });
     Object.keys(byExam).forEach(function (slug) {
@@ -66,7 +79,7 @@
         nQ: ps.reduce(function (s, p) { return s + p.questions.length; }, 0) });
     });
     EXAMS.sort(function (a, b) { return a.num - b.num; });
-  })();
+  }
   function findExam(slug) { for (var i = 0; i < EXAMS.length; i++) if (EXAMS[i].slug === slug) return EXAMS[i]; return null; }
 
   /* ====================== reader building ====================== */
@@ -78,10 +91,28 @@
       row.appendChild(l); row.appendChild(r); host.appendChild(row);
     });
   }
+  function dupeBadge(qref) {
+    var dup = (MODE === 'exams') ? DUPES[qref] : DUPES2026[qref];
+    if (!dup || !dup.to) return null;
+    var a = document.createElement('a');
+    a.className = 'dupe-badge';
+    if (MODE === 'exams') {
+      a.href = 'index.html#go=' + encodeURIComponent(dup.to.id);
+      a.textContent = '↻ also in 2026 · #' + dup.to.rank;
+      a.title = 'This mock-exam question also appears in the 2026 course (ranked #' + dup.to.rank + '). Click to open the 2026 version.';
+    } else {
+      a.href = 'exams.html#go=' + encodeURIComponent(dup.to.id);
+      a.textContent = '↻ also in ' + examLabel(dup.to.exam);
+      a.title = 'This 2026 question is recycled from ' + examLabel(dup.to.exam) + ' (' + dup.to.qref + '). Click to open the mock-exam version.';
+    }
+    return a;
+  }
   function appendQuestions(host, p) {
     p.questions.forEach(function (q, qi) {
       var card = document.createElement('div'); card.className = 'qcard';
       card.innerHTML = '<span class="qref">' + q.qref + '</span><div class="q-instr"><div class="fr"></div><div class="en"></div></div>';
+      var badge = dupeBadge(q.qref);
+      if (badge) card.insertBefore(badge, card.firstChild);
       var instr = card.querySelector('.q-instr');
       hlText(instr.querySelector('.fr'), q.stem.fr, p.id + '#s' + qi);
       instr.querySelector('.en').textContent = q.stem.en;
@@ -106,7 +137,6 @@
         });
         card.appendChild(ul);
       }
-      // answer explanation (revealed with the answer; hidden while drilling until reveal)
       if (q.explanation && q.explanation.length) {
         var ex = document.createElement('div'); ex.className = 'explain';
         ex.innerHTML = '<span class="lbl">Why</span>';
@@ -142,6 +172,21 @@
 
   function metaPill(host) { return function (html) { var s = document.createElement('span'); s.className = 'b'; s.innerHTML = html; host.appendChild(s); }; }
 
+  function renderRanked(p) {
+    var drilling = document.body.classList.contains('drill');
+    document.getElementById('entry-title').textContent = drilling
+      ? ('#' + p.rank + ' · 🎯 Drill — read & answer')
+      : ('#' + p.rank + ' · ' + snippet(p, 70));
+    var meta = document.getElementById('entry-meta'); meta.innerHTML = ''; var b = metaPill(meta);
+    b('<span class="cefr-pill">' + p.cefr + '</span>');
+    b('difficulty ' + p.score + '/100'); b('section ' + p.section);
+    b(p.words + ' words'); b(p.questions.length + ' question' + (p.questions.length === 1 ? '' : 's'));
+    document.getElementById('entry-note').textContent = drilling
+      ? '🎯 Drill — read the document, choose your answer, then the translation, correct answer & explanation reveal.'
+      : ('📖 2026 course item.' + (p.rationale ? '  ·  ' + p.rationale : ''));
+    segsEl.innerHTML = ''; questionsEl.innerHTML = '';
+    appendPassage(segsEl, p, false);
+  }
   function renderExam(ex) {
     document.getElementById('entry-title').textContent = examLabel(ex.slug);
     var meta = document.getElementById('entry-meta'); meta.innerHTML = ''; var b = metaPill(meta);
@@ -152,15 +197,26 @@
     segsEl.innerHTML = ''; questionsEl.innerHTML = '';
     ex.passages.forEach(function (p) { appendPassage(segsEl, p, true); });
   }
-  function rerenderReader() { if (curExam) renderExam(findExam(curExam)); }
+  function rerenderReader() {
+    if (MODE === 'exams') { if (curExam) renderExam(findExam(curExam)); }
+    else if (curId) renderRanked(byId(curId));
+  }
 
   function showReader() { emptyEl.hidden = true; entryEl.hidden = false; reader.scrollTop = 0; }
+  function loadRanked(id) {
+    var p = byId(id); if (!p) return;
+    curId = id; showReader(); renderRanked(p); renderList();
+  }
   function loadExam(slug) {
     var ex = findExam(slug); if (!ex) return;
     curExam = slug; showReader(); renderExam(ex); renderList();
   }
+  function scrollToPassage(id) {
+    var el = segsEl.querySelector('.passage[data-pid="' + id + '"]');
+    if (el) { el.scrollIntoView({ block: 'start' }); el.classList.add('flash'); setTimeout(function () { el.classList.remove('flash'); }, 1600); }
+  }
 
-  /* ====================== list ====================== */
+  /* ====================== lists ====================== */
   function matchText(p, q) {
     for (var i = 0; i < p.passage.length; i++)
       if (p.passage[i].fr.toLowerCase().indexOf(q) >= 0 || p.passage[i].en.toLowerCase().indexOf(q) >= 0) return true;
@@ -172,7 +228,34 @@
     }
     return false;
   }
-  function renderList() {
+  function currentRanked() {
+    var q = (searchEl.value || '').toLowerCase().trim();
+    return DATA.filter(function (p) {
+      if (activeBand !== 'all' && p.cefr !== activeBand) return false;
+      if (!q) return true;
+      return matchText(p, q);
+    });
+  }
+  function renderRankedList() {
+    var items = currentRanked();
+    listEl.innerHTML = ''; var lastBand = null;
+    items.forEach(function (p) {
+      if (p.cefr !== lastBand) {
+        var gl = document.createElement('div'); gl.className = 'group-label';
+        gl.innerHTML = '<span>' + p.cefr + '</span>'; listEl.appendChild(gl); lastBand = p.cefr;
+      }
+      var el = document.createElement('div');
+      el.className = 'item' + (p.id === curId ? ' active' : '');
+      el.innerHTML = '<div class="rank">#' + p.rank + '</div><div class="meta"><div class="t"></div>' +
+        '<div class="d"><span class="badge">' + p.cefr + '</span><span class="ex"></span></div></div>';
+      el.querySelector('.t').textContent = document.body.classList.contains('drill') ? '🎯 Drill — read & answer' : snippet(p);
+      el.querySelector('.ex').textContent = '📖 ' + p.questions.length + 'q';
+      el.onclick = function () { loadRanked(p.id); if (isMobile()) document.body.classList.add('detail'); };
+      listEl.appendChild(el);
+    });
+    countEl.textContent = items.length + ' passage' + (items.length === 1 ? '' : 's') + (activeBand === 'all' ? ' · easiest → hardest' : '');
+  }
+  function renderExamList() {
     var q = (searchEl.value || '').toLowerCase().trim();
     var items = EXAMS.filter(function (ex) {
       if (!q) return true;
@@ -190,6 +273,21 @@
       listEl.appendChild(el);
     });
     countEl.textContent = items.length + ' exam' + (items.length === 1 ? '' : 's') + ' · in test order';
+  }
+  function renderList() { if (MODE === 'exams') renderExamList(); else renderRankedList(); }
+
+  /* ---- CEFR filter chips (ranked only) ---- */
+  function renderFilters() {
+    if (!filtersEl) return;
+    var c = {}; BANDS.forEach(function (x) { c[x] = 0; });
+    DATA.forEach(function (p) { c[p.cefr] = (c[p.cefr] || 0) + 1; });
+    filtersEl.innerHTML = '';
+    [['all', 'All (' + DATA.length + ')']].concat(BANDS.map(function (x) { return [x, x + ' ' + (c[x] || 0)]; })).forEach(function (d) {
+      var el = document.createElement('span');
+      el.className = 'chip' + (activeBand === d[0] ? ' on' : ''); el.textContent = d[1];
+      el.onclick = function () { activeBand = d[0]; localStorage.setItem('band-reading', activeBand); renderFilters(); renderRankedList(); };
+      filtersEl.appendChild(el);
+    });
   }
   searchEl.addEventListener('input', renderList);
 
@@ -318,6 +416,7 @@
   document.addEventListener('click', function (e) {
     if (document.body.classList.contains('drill')) return;
     if (nowt() - lastApply < 400) return;
+    if (e.target && e.target.closest && e.target.closest('a')) return;   // let dupe-badge links work
     toggleWordAt(e.clientX, e.clientY);
   });
 
@@ -370,7 +469,7 @@
   };
   hlRestore.onclick = function () { hlFile.value = ''; hlFile.click(); };
 
-  var RANKX = {}; DATA.forEach(function (p) { RANKX[p.rank] = p; });
+  var RANKX = {}; DATA.forEach(function (p) { RANKX[p.rank] = p; });   // per-course (DATA is one course)
   function passageSlots(p) {
     var out = [];
     p.passage.forEach(function (s, si) { out.push({ k: p.id + '#t' + si, fr: s.fr }); });
@@ -486,6 +585,20 @@
   }, true);
 
   /* ====================== boot ====================== */
-  renderList();
+  if (MODE === 'exams') { renderExamList(); }
+  else { renderFilters(); renderRankedList(); }
   updateHLCount();
+
+  // deep-link #go=<passageId>: ranked opens the passage; exams opens its exam and scrolls to it
+  var openHash = function () {
+    var m = (location.hash || '').match(/^#go=(.+)$/);
+    if (!m) return;
+    var id; try { id = decodeURIComponent(m[1]); } catch (e) { return; }
+    var p = byId(id); if (!p) return;
+    if (MODE === 'exams') { loadExam(p.exam); setTimeout(function () { scrollToPassage(id); }, 30); }
+    else { loadRanked(id); }
+    if (isMobile()) document.body.classList.add('detail');
+  };
+  openHash();
+  window.addEventListener('hashchange', openHash);
 })();
