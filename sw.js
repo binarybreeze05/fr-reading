@@ -1,7 +1,8 @@
 // Minimal service worker: installable PWA + offline app-shell.
 // Network-first for shell/data (stays fresh), cache fallback (offline). Reading has no audio.
-const CACHE = 'tef-reading-v3';
-const SHELL = ['./', './index.html', './exams.html', './style.css?v=3', './app.js?v=2',
+const CACHE = 'tef-reading-v4';
+const SHELL = ['./', './index.html', './exams.html', './cram.html',
+               './style.css?v=4', './app.js?v=2', './cram.js?v=1',
                './data.js?v=2', './dupes.js?v=2',
                './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
