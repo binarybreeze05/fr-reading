@@ -22,7 +22,7 @@
   paintThemeIcon();
 
   /* ---- settings (persisted) ---- */
-  var S = { scope: 'all', cefr: 'all', shuffle: false, reveal: false, dedupe: false, fr: false, hidknown: false };
+  var S = { scope: 'all', cefr: 'all', shuffle: false, reveal: false, dedupe: false, fr: false, hidknown: false, timer: true };
   try { var saved = JSON.parse(localStorage.getItem('cram-reading-set') || '{}'); for (var k in saved) if (k in S) S[k] = saved[k]; } catch (e) {}
   function saveSettings() { try { localStorage.setItem('cram-reading-set', JSON.stringify(S)); } catch (e) {} }
 
@@ -78,6 +78,7 @@
   var revealed = false;
   var guessed = null;   // option index the user tapped, or null
   var sess = { right: 0, wrong: 0 };
+  var autoTimer = null; // 10s auto-advance timeout handle
 
   function buildDeck(preserveQref) {
     var keep = CARDS.filter(function (c) {
@@ -103,6 +104,8 @@
   var backBtn = document.getElementById('back');
   var stat = document.getElementById('stat');
   var progressFill = document.getElementById('progress-fill');
+  var timerbar = document.getElementById('timerbar');
+  var timerfill = document.getElementById('timerfill');
   var hint = document.getElementById('hint');
 
   function el(tag, cls, txt) { var e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; }
@@ -111,9 +114,39 @@
     if (!S.fr && en) host.appendChild(el('div', 'cr-en', en));
   }
 
+  /* ---- two-stage 10s timer: 10s → reveal the answer, 10s more → next card ---- */
+  var AUTO_MS = 10000;
+  function hideTimerBar() {
+    timerbar.style.display = 'none';
+    timerfill.style.transition = 'none';
+    timerfill.style.width = '100%';
+  }
+  function runTimerBar() {
+    timerbar.style.display = '';
+    timerbar.classList.toggle('phase2', revealed);                 // green while counting down to the next card
+    timerfill.style.transition = 'none';
+    timerfill.style.width = '100%';
+    void timerfill.offsetWidth;                                    // reflow so the next line animates
+    timerfill.style.transition = 'width ' + (AUTO_MS / 1000) + 's linear';
+    timerfill.style.width = '0%';
+  }
+  function clearTimer() { if (autoTimer) { clearTimeout(autoTimer); autoTimer = null; } }
+  function stopTimer() { clearTimer(); hideTimerBar(); }
+  function startTimer() {
+    clearTimer();
+    if (!S.timer || !DECK.length) { hideTimerBar(); return; }
+    runTimerBar();
+    autoTimer = setTimeout(function () {
+      autoTimer = null;
+      if (!revealed) doReveal();   // 1st countdown: reveal the answer (and start the 2nd countdown)
+      else next();                 // 2nd countdown: advance to the next card
+    }, AUTO_MS);
+  }
+
   function renderCard() {
+    clearTimer();
     wrap.innerHTML = '';
-    if (!DECK.length) { renderEmpty(); return; }
+    if (!DECK.length) { renderEmpty(); hideTimerBar(); return; }
     var c = DECK[idx];
     revealed = S.reveal; guessed = null;
 
@@ -139,10 +172,10 @@
       var img = el('img', 'cr-img'); img.loading = 'lazy'; img.src = 'img/' + im; card.appendChild(img);
     });
 
-    // passage peek (context — collapsed by default, remembers open state)
+    // passage peek (context — shown open by default; you can still collapse it, remembered)
     if (c.p.passage && c.p.passage.length) {
       var det = el('details', 'cr-peek');
-      if (localStorage.getItem('cram-reading-peekpass') === '1') det.open = true;
+      if (localStorage.getItem('cram-reading-peekpass') !== '0') det.open = true;
       det.addEventListener('toggle', function () { localStorage.setItem('cram-reading-peekpass', det.open ? '1' : '0'); });
       det.appendChild(el('summary', null, '📄 Passage'));
       var body = el('div', 'cr-peek-body');
@@ -179,6 +212,7 @@
     wrap.scrollTop = 0;
     paintReveal();
     paintChrome();
+    startTimer();
     // remember where we are
     try { localStorage.setItem('cram-reading-pos', c.qref); } catch (e) {}
   }
@@ -225,14 +259,20 @@
   }
 
   /* ====================== interaction ====================== */
+  function doReveal() {
+    if (revealed) return;
+    revealed = true;
+    paintReveal(); paintChrome();
+    startTimer();           // begin the 2nd 10s countdown (revealed → next card)
+  }
   function onOption(li) {
     if (revealed) return;                 // already shown — ignore taps
     li.classList.add('chosen');
     if (li.dataset.correct === '1') sess.right++; else sess.wrong++;
-    revealed = true; paintReveal(); paintChrome();
+    doReveal();
   }
   function primaryAction() {
-    if (!revealed) { revealed = true; paintReveal(); paintChrome(); }
+    if (!revealed) doReveal();
     else next();
   }
   function next() {
@@ -254,6 +294,7 @@
   }
 
   function renderDone() {
+    stopTimer();
     var reviewed = DECK.length;
     var box = el('div', 'cram-empty');
     box.appendChild(el('div', 'cram-empty-big', '🏁'));
@@ -288,7 +329,7 @@
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'Enter') { e.preventDefault(); primaryAction(); }
     else if (e.key === 'ArrowLeft' || e.key === 'Backspace') { e.preventDefault(); prev(); }
-    else if (e.key === 'r' || e.key === 'R') { if (!revealed) { revealed = true; paintReveal(); paintChrome(); } }
+    else if (e.key === 'r' || e.key === 'R') { doReveal(); }
     else if (e.key === 'k' || e.key === 'K') { toggleKnown(); }
     else if (e.key === 's' || e.key === 'S') { setToggle('shuffle', !S.shuffle); }
   });
@@ -344,7 +385,9 @@
   }
   function setToggle(key, val) {
     S[key] = val; saveSettings(); syncToggles();
-    if (key === 'reveal' || key === 'fr') {
+    if (key === 'timer') {
+      if (S.timer) startTimer(); else stopTimer();   // just arm/disarm; don't disturb the card
+    } else if (key === 'reveal' || key === 'fr') {
       // no reordering needed — just re-render current card
       if (key === 'reveal') { revealed = S.reveal; }
       renderCard();
@@ -355,6 +398,7 @@
   }
   function syncToggles() {
     document.getElementById('t-reveal').classList.toggle('on', S.reveal);
+    document.getElementById('t-timer').classList.toggle('on', S.timer);
     document.getElementById('t-shuffle').classList.toggle('on', S.shuffle);
     document.getElementById('t-dedupe').classList.toggle('on', S.dedupe);
     document.getElementById('t-fr').classList.toggle('on', S.fr);
@@ -363,6 +407,7 @@
     renderCefr();
   }
   bindToggle('t-reveal', 'reveal');
+  bindToggle('t-timer', 'timer');
   bindToggle('t-shuffle', 'shuffle');
   bindToggle('t-dedupe', 'dedupe');
   bindToggle('t-fr', 'fr');

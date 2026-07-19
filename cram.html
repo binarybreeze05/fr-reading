@@ -9,7 +9,7 @@
 <script>/* apply saved theme before paint */
   (function(){var t=localStorage.getItem('theme'); if(t) document.documentElement.setAttribute('data-theme', t);})();
 </script>
-<link rel="stylesheet" href="style.css?v=4">
+<link rel="stylesheet" href="style.css?v=5">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#1f232a">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -34,6 +34,7 @@
       <div class="cram-scope" id="scope"></div>
       <span class="cram-sep"></span>
       <button class="chip toggle" id="t-reveal" title="Show the correct answer immediately (skip the reveal tap)">👁 Answers</button>
+      <button class="chip toggle" id="t-timer" title="After 10s reveal the answer, then 10s later go to the next card">⏱ 10s</button>
       <button class="chip toggle" id="t-shuffle" title="Random order — reshuffles each pass">🔀 Shuffle</button>
       <button class="chip toggle" id="t-dedupe" title="Skip questions that repeat across the 2026 course and the mock exams (keep the 2026 copy)">⧉ Dedupe</button>
       <button class="chip toggle" id="t-fr" title="Hide the English translations">🇫🇷 FR only</button>
@@ -45,6 +46,7 @@
       <div class="cram-stat" id="stat"></div>
       <button class="cram-reset" id="reset" title="Start this set from the beginning">↺ Restart</button>
     </div>
+    <div class="cram-timerbar" id="timerbar"><div class="cram-timerbar-fill" id="timerfill"></div></div>
   </header>
 
   <main class="cram-stage" id="stage">
@@ -64,7 +66,7 @@
 
 <script src="data.js?v=2"></script>
 <script src="dupes.js?v=2"></script>
-<script src="cram.js?v=1"></script>
+<script src="cram.js?v=2"></script>
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', function () {
